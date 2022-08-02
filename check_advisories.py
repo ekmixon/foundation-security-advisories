@@ -65,11 +65,7 @@ yaml_schema = Schema({
 
 
 def mfsa_id_from_filename(filename):
-    match = MFSA_FILENAME_RE.search(filename)
-    if match:
-        return match.group(1)
-
-    return None
+    return match.group(1) if (match := MFSA_FILENAME_RE.search(filename)) else None
 
 
 def git_diff(staged):
@@ -112,8 +108,7 @@ def get_all_files():
         for filename in fnmatch.filter(filenames, 'mfsa*.*'):
             yield os.path.join(root, filename)
 
-    for filename in glob('{}/*.yml'.format(HOF_DIR)):
-        yield filename
+    yield from glob(f'{HOF_DIR}/*.yml')
 
 
 def check_hof_data(data):
@@ -149,7 +144,7 @@ def check_file(file_name):
         parser = parse_yml_file
         schema = yaml_schema
     else:
-        return 'Unknown file type: %s' % file_name
+        return f'Unknown file type: {file_name}'
 
     try:
         data = parser(file_name)
@@ -170,7 +165,7 @@ def check_file(file_name):
         try:
             parsedate(data['announced']).date()
         except Exception:
-            return 'Failed to parse "{}" as a date'.format(data['announced'])
+            return f"""Failed to parse "{data['announced']}" as a date"""
 
     try:
         schema.validate(data)
@@ -199,7 +194,7 @@ def parse_md_front_matter(lines):
         if fm_count == 1:
             yaml_lines.append(line)
 
-        if fm_count == 2:
+        elif fm_count == 2:
             md_lines.append(line)
 
     if fm_count < 2:
@@ -214,8 +209,7 @@ def parse_yml_file(file_name):
         data = yaml.safe_load(fh)
 
     if 'mfsa_id' not in data:
-        mfsa_id = mfsa_id_from_filename(file_name)
-        if mfsa_id:
+        if mfsa_id := mfsa_id_from_filename(file_name):
             data['mfsa_id'] = mfsa_id
     return data
 
@@ -227,8 +221,7 @@ def parse_md_file(file_name):
 
     data = yaml.safe_load(yamltext)
     if 'mfsa_id' not in data:
-        mfsa_id = mfsa_id_from_filename(file_name)
-        if mfsa_id:
+        if mfsa_id := mfsa_id_from_filename(file_name):
             data['mfsa_id'] = mfsa_id
     # run it through parser in case of exception
     markdown(mdtext)

@@ -40,7 +40,7 @@ class BugzillaUrl(object):
     @staticmethod
     def parse(url):
         if not url.startswith(BugzillaUrl.base_uri):
-            raise Exception("Unsupported Bugzilla base URI in %s" % url)
+            raise Exception(f"Unsupported Bugzilla base URI in {url}")
         args = url.split("?")[1]
         if args.startswith("id="):
             # split off optional comment anchor
@@ -55,22 +55,22 @@ class BugzillaUrl(object):
                 while bugs[i].endswith(" "):
                     bugs[i] = bugs[i][:-1]
                 if not bugs[i].isdigit():
-                    raise Exception("Broken Bugzilla bug ID %s in %s" % (bugs[i], url))
+                    raise Exception(f"Broken Bugzilla bug ID {bugs[i]} in {url}")
                 bugs[i] = int(bugs[i])
             return bugs
         else:
-            raise Exception("Unsupported Bugzilla CGI script in %s" % url)
+            raise Exception(f"Unsupported Bugzilla CGI script in {url}")
 
     def __str__(self):
         if len(self.bugs) == 0:
             return None
         elif len(self.bugs) == 1:
             script = "show_bug.cgi"
-            args = "id=%s" % str(self.bugs[0])
+            args = f"id={str(self.bugs[0])}"
         else:
             script = "buglist.cgi"
-            args = "bug_id=%s" % ",".join([str(x) for x in self.bugs])
-        return "%s/%s?%s" % (self.base_uri, script, args)
+            args = f'bug_id={",".join([str(x) for x in self.bugs])}'
+        return f"{self.base_uri}/{script}?{args}"
 
 
 #############################################################################################################
@@ -257,10 +257,7 @@ class MfsaMd(object):
                 header["announced"] = line[11:]
                 append_to = None
             elif line.startswith("fixed_in:"):
-                if len(line) > len("fixed_in:") + 2:
-                    header["fixed_in"] = [line[10:]]
-                else:
-                    header["fixed_in"] = []
+                header["fixed_in"] = [line[10:]] if len(line) > len("fixed_in:") + 2 else []
                 append_to = "fixed_in"
             elif line.startswith("vulnerable:"):    # TODO: warn about obsolete field
                 if len(line) > len("vulnerable:") + 2:
@@ -288,7 +285,7 @@ class MfsaMd(object):
                 header["risk"] = line[6:]
                 append_to = None
             else:
-                raise Exception("Unknown MFSA header: %s" % line)
+                raise Exception(f"Unknown MFSA header: {line}")
 
         # body = minidom.parseString("<html>" + bod + "</html>")
         # print MfsaMd.xmlheader + bod + MfsaMd.xmlfooter
@@ -299,13 +296,15 @@ class MfsaMd(object):
     def __str__(self):
         header = self.header  # TODO: does this make a deep copy?
         header["fixed_in"] =  "\n- ".join(header["fixed_in"])
-        header = ["%s: %s" % (k, header[k]) for k in header]  # CAVE: does not maintain order
+        header = [f"{k}: {header[k]}" for k in header]
         header = "\n".join(header) + "\n"
         header.replace("fixed_in: \n", "fixed_in:\n")
 
-        body = ""
-        for node in self.body.childNodes[1].childNodes:
-            body += node.toprettyxml(indent="  ")
+        body = "".join(
+            node.toprettyxml(indent="  ")
+            for node in self.body.childNodes[1].childNodes
+        )
+
         #assert body.startswith(self.xmlheader)
         #assert body.endswith(self.xmlfooter)
         #body = body[len(self.xmlheader):-len(self.xmlfooter)]
@@ -316,8 +315,7 @@ class MfsaMd(object):
         # TODO: also extract link text for bug titles
         all_links = self.body.getElementsByTagName("a")
         all_hrefs = [a.attributes["href"].value for a in all_links]
-        just_buglinks = [h for h in all_hrefs if h.startswith("https://bugzilla.mozilla.org/")]
-        return just_buglinks
+        return [h for h in all_hrefs if h.startswith("https://bugzilla.mozilla.org/")]
 
     def bugRefs(self):
         bugs = []
@@ -364,12 +362,12 @@ class MfsaDB(object):
 
     def __init__(self, path="announce"):
         self.path = path
-        self.tree = [x for x in os.walk(self.path)]
+        self.tree = list(os.walk(self.path))
         try:
             assert self.tree[0][1][0] == "2005"
             assert len(self.tree) == len(self.tree[0][1]) + 1
         except AssertionError as e:
-            raise Exception("Unknown advisory tree format, reason %s" % e)
+            raise Exception(f"Unknown advisory tree format, reason {e}")
 
     def listYears(self):
         return self.tree[0][1]
@@ -379,7 +377,7 @@ class MfsaDB(object):
         assert mfsa_name.lower().startswith("mfsa")
         if mfsa_name.lower().endswith(".md"):
             mfsa_name = mfsa_name[:-3]
-        year, nr = map(int, mfsa_name[4:].split("-")[0:2])
+        year, nr = map(int, mfsa_name[4:].split("-")[:2])
         return year, nr
 
     @staticmethod
@@ -397,8 +395,7 @@ class MfsaDB(object):
 
     def filenameFromName(self, mfsa_name):
         year, nr = self.asInts(mfsa_name)
-        filename = self.filenameFromInts(year, nr)
-        return filename
+        return self.filenameFromInts(year, nr)
 
     @staticmethod
     def isAnewerB(a, b):
@@ -477,10 +474,7 @@ class BugzillaSecurityCSV(object):
 
     def checkFields(self, fields):
         line = self.csv[self.csv.keys()[0]]
-        for f in fields:
-            if f not in line:
-                return False
-        return True
+        return all(f in line for f in fields)
 
 #############################################################################################################
 
